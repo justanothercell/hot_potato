@@ -1,14 +1,24 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+#![feature(unboxed_closures)]
+#![feature(tuple_trait)]
+#![feature(fn_traits)]
+
+use std::marker::{Tuple, PhantomData};
+
+pub use hot_potato_proc_macro::potato;
+
+pub struct PotatoFunc<Args: Tuple, Output>  {
+    pub func: Option<Box<dyn FnMut<Args, Output = Output>>>
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl<Args: Tuple, Output> FnOnce<Args> for PotatoFunc<Args, Output> {
+    type Output = Output;
+    extern "rust-call" fn call_once(self, args: Args) -> Self::Output {
+        self.func.map(|f| f.call_once(args)).expect("function was not loaded")
+    }
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl<Args: Tuple, Output> FnMut<Args> for PotatoFunc<Args, Output> {
+    extern "rust-call" fn call_mut(&mut self, args: Args) -> Self::Output {
+        self.func.as_mut().map(|f| f.call_mut(args)).expect("function was not loaded")
     }
 }
