@@ -1,0 +1,6 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "Cargo.toml",
+        "hot_potato_proc_macro/Cargo.toml"
+    ]
+}
