@@ -30,17 +30,18 @@ fn apply_to_fn(_attr: TokenStream, fun: Function) -> TokenStream {
         venial::FnParam::Typed(t) => &t.name,
     }).collect::<Vec<&Ident>>();
     let arg_tys = args.iter().map(|(param, _)| match param {
-        venial::FnParam::Receiver(_) => panic!("potato may not be applied to self-methods"),
+        venial::FnParam::Receiver(_) => unreachable!(),
         venial::FnParam::Typed(t) => &t.ty,
     }).collect::<Vec<&TyExpr>>();
     let ret = fun.return_ty;
     let where_clause = fun.where_clause;
     let body = fun.body;
     if body.is_none() { panic!("potato only applicable to functions with a body") }
-    //panic!("{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}", attrs, vis, qualifiers, name, generics, args);
+    
     TokenStream::from(quote! {
         #(#attrs)*
         #[export_name=concat!(module_path!(), "::", stringify!(#name), "__potato")]
+        #[allow(non_snake_case)]    
         fn #internal_name #generics ( #args ) -> #ret #where_clause 
             #body
         
