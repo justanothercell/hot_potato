@@ -22,3 +22,12 @@ impl<Args: Tuple, Output> FnMut<Args> for PotatoFunc<Args, Output> {
         self.func.as_mut().map(|f| f.call_mut(args)).expect("function was not loaded")
     }
 }
+
+impl<Args: Tuple, Output> Fn<Args> for PotatoFunc<Args, Output> {
+    extern "rust-call" fn call(&self, args: Args) -> Self::Output {
+        self.func.as_mut().map(|f| f.call_mut(args)).expect("function was not loaded")
+    }
+}
+
+
+unsafe impl <Args: Tuple, Output> Sync for PotatoFunc<Args, Output> {}
