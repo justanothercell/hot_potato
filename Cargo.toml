@@ -3,10 +3,8 @@ name = "hot_potato"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-crate-type = ["cdylib", "staticlib", "lib"]
-
 [dependencies]
 hot_potato_proc_macro = { version="0.1.0", path="./hot_potato_proc_macro" }
 inventory = "0.3.8"
+libloading = "0.8.0"
 parking_lot = "0.12.1"

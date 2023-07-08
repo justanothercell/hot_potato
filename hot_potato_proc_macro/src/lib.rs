@@ -42,14 +42,15 @@ fn apply_to_fn(_attr: TokenStream, fun: Function) -> TokenStream {
     
     TokenStream::from(quote! {
         #(#attrs)*
+        #[no_mangle]
         #[export_name=concat!(module_path!(), "::", stringify!(#name), "__potato")]
         #[allow(non_snake_case)]
-        fn #internal_name #generics ( #args ) -> #ret #where_clause 
+        pub fn #internal_name #generics ( #args ) -> #ret #where_clause 
             #body
         
         #(#attrs)*
         #[allow(non_upper_case_globals)]
-        #vis static #name: ::hot_potato::PotatoFunc<( #(#arg_tys,)* ), #ret> = unsafe { ::hot_potato::PotatoFunc::new(stringify!(#internal_name)) };
+        #vis static #name: ::hot_potato::PotatoFunc<( #(#arg_tys,)* ), #ret> = unsafe { ::hot_potato::PotatoFunc::new(concat!(module_path!(), "::", stringify!(#name), "__potato")) };
 
         #[allow(non_upper_case_globals)]
         #[allow(non_snake_case)]
