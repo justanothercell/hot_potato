@@ -1,0 +1,15 @@
+[package]
+name = "test_project"
+version = "0.1.0"
+edition = "2021"
+default-run = "test_project"
+
+[lib]
+path = "src/main.rs"
+
+[[bin]]
+name = "test_project"
+path = "src/main.rs"
+
+[dependencies]
+hot_potato = { path=".." }

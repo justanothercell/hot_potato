@@ -20,8 +20,10 @@ fn apply_to_fn(_attr: TokenStream, fun: Function) -> TokenStream {
     let attrs = fun.attributes;
     let vis = fun.vis_marker;
     let qualifiers = fun.qualifiers;
+    if qualifiers.extern_abi.is_some() || qualifiers.tk_async.is_some() || qualifiers.tk_const.is_some() ||
+       qualifiers.tk_extern.is_some() || qualifiers.tk_unsafe.is_some() { panic!("potato may not be applied to functions with qualifiers") }
     let name = fun.name;
-    let internal_name = Ident::new(&format!("{}__potato__internal", name.to_string()), Span::call_site());
+    let internal_name = Ident::new(&format!("{}__potato_internal", name.to_string()), Span::call_site());
     let generics = fun.generic_params;
     if generics.is_some() { panic!("potato may only be applied to functions without generics") }
     let args = fun.params;
@@ -41,16 +43,18 @@ fn apply_to_fn(_attr: TokenStream, fun: Function) -> TokenStream {
     TokenStream::from(quote! {
         #(#attrs)*
         #[export_name=concat!(module_path!(), "::", stringify!(#name), "__potato")]
-        #[allow(non_snake_case)]    
+        #[allow(non_snake_case)]
         fn #internal_name #generics ( #args ) -> #ret #where_clause 
             #body
         
-        #vis #qualifiers fn #name #generics ( #args ) -> #ret #where_clause {
-            static mut potato: ::hot_potato::PotatoFunc<( #(#arg_tys,)* ), #ret> = ::hot_potato::PotatoFunc {
-                func: None,
-            };
-        
-            unsafe { potato ( #(#arg_names),* ) }
+        #(#attrs)*
+        #[allow(non_upper_case_globals)]
+        #vis static #name: ::hot_potato::PotatoFunc<( #(#arg_tys,)* ), #ret> = unsafe { ::hot_potato::PotatoFunc::new(stringify!(#internal_name)) };
+
+        #[allow(non_upper_case_globals)]
+        #[allow(non_snake_case)]
+        ::hot_potato::submit!{
+            #name.handle()
         }
     })
 }
