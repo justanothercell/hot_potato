@@ -6,16 +6,21 @@ enabling quick changes without an entire restart and navigation to the current i
 Note that this works only in your dev envioronment - not on a shipped build!
 
 It is highly recommended that all potato code should be stripped out of release builds! This crate is meant to facilitate design&development and is not qualified to 
-serve soundly in a deplyoed build.
+serve soundly in a deployed build.
+
+# Table Of Contents
+- [Quickstart/Hot Reloading](#quickstart)
+- [Magic Values](#magic-value-adjustment)
+- [Functionality](#functionality)
 
 # Quickstart
-(see  [test_project](../test_project/src/main.rs) for a rudimentary implementation)
+(see [test_project](../test_project/src/main.rs) for a rudimentary implementation)
 
 0. Add `hot_potato` to your project<br>
 ```sh
 cargo add hot_potato
 ```
-1. Create the function you want to hot reload and annotate ith with `potato`
+1. Create the function you want to hot reload and annotate with with `potato`
 ```rs
 use hot_potato::potato;
 
@@ -35,7 +40,7 @@ fn main() {
     ...
 }
 ```
-3. Create a reload trigger (hotkey, ui widget, or a input like here)
+3. Create a reload trigger (hotkey, ui widget, or an input like here)
 ```rs
 fn main() {
     // some quick and dirty loop
@@ -67,7 +72,8 @@ path = "src/main.rs"
 the lib target is for the hot reloading and the bin target is your default run compile target.
 
 5. Run using `cargo run`
-Try editing the interpolation function and triggering the reload:+
+
+Try editing the interpolation function and triggering the reload:
 ```rs
 /// t: time [0.0;1.0]
 #[potato]
@@ -85,13 +91,18 @@ fn interpolate(t: f32) -> f32 {
 }
 ```
 
-# Magic value adjustment
+# Magic Value Adjustment
 In this scenario we want to show a widget with a certain color but we are not quite happy with it.
 
 Note that you still need an initial `build_and_reload_potatoes`, but no such reload is needed after value adjustment.
-```rs
-// Pseudo code, look at test_project for some real code
 
+Pseudo code, look at [test_project](../test_project/src/main.rs) for some real code
+```rs
+// We are not quite happy with our color... 
+// Instead of starting the whole app anew every time we change it slightly,
+// or having to change our code in a way that we pass around those values
+// and having to change that back later, we can just glue those magic parameters to 
+// that function and change them from anywhere
 #[potato(r: u8 = 0xFF, g: u8 = 0x00, b: u8 = 0xFF)]
 fn show_colored_thing(text: &str, ui: &mut UIContext) -> f32 {
     let mut widget = Widget::new();
@@ -102,17 +113,18 @@ fn show_colored_thing(text: &str, ui: &mut UIContext) -> f32 {
 
 // Somewhere in an debug ui handler that has an "apply&test" button.
 // Also lets just pretend we have 3 debug ui sliders for rgb.
-fn on_click_apply(/* pretend ui library args */, ui: &mut UIContext) {
-    show_colored_thing.set::<u8>("r", red.get_slider_value());
-    show_colored_thing.set::<u8>("g", red.get_slider_value());
-    show_colored_thing.set::<u8>("b", red.get_slider_value());
+fn on_click_apply(red: Slider, green: Slider, blue: Slider, ui: &mut UIContext) {
+    show_colored_thing.set::<u8>("r", (red.get_slider_value() * 255.0) as u8);
+    show_colored_thing.set::<u8>("g", (green.get_slider_value() * 255.0) as u8);
+    show_colored_thing.set::<u8>("b", (blue.get_slider_value() * 255.0) as u8);
+}
 
-    // This does not need to be called here... 
-    // could be anywhere, is just here for testing, 
-    // so that we can test the new colors with one click
+// Somewhere we also have an "open popup" button
+fn on_click_open(ui: &mut UIContext) {
     show_colored_thing("Test RGB popup", ui);
 }
 ```
+# Functionality
 
 ## What this can do:
 - hot reload almost arbitrary function bodies
