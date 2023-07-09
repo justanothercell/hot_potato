@@ -5,7 +5,6 @@ edition = "2021"
 default-run = "test_project"
 
 [lib]
-name = "potato_dytarget"
 path = "src/main.rs"
 crate-type = ["cdylib"]
 

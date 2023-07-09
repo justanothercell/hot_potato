@@ -95,12 +95,13 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
     status.exit_ok().map_err(|e| e.to_string())?;
 
     let next = std::env::args().next().unwrap();
-    let (base, _) = next.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
+    let (base, exe) = next.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
+    let name = exe.rsplit_once(".").unwrap_or((exe, "")).0;
 
     #[cfg(windows)]
-    let lib = format!("potato_dytarget.dll");
+    let lib = format!("{name}.dll");
     #[cfg(not(windows))]
-    let lib = "libpotato_dytarget.so";
+    let lib = format!("lib{name}.so");
 
     let potato_lib = unsafe { Library::new(format!("{base}/{lib}")).map_err(|e| e.to_string())? };
 
