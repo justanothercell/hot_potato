@@ -3,22 +3,23 @@
 #![feature(fn_traits)]
 #![feature(exit_status_error)]
 
-use std::{marker::Tuple, process::{Command, Stdio}, collections::HashMap, any::Any};
+use std::{marker::Tuple, process::{Command, Stdio}, collections::HashMap, any::Any, fmt::Debug};
 use libloading::{Library, Symbol};
 use parking_lot::{RwLock, RwLockWriteGuard};
 
 pub use hot_potato_proc_macro::potato;
 pub use inventory::submit;
 
-pub struct PotatoFunc<Args: Tuple, MagicArgs: Tuple, Output>  {
+pub struct PotatoFunc<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy>  {
     path: &'static str,
     func: RwLock<Option<Box<dyn Fn<MagicArgs, Output = Output>>>>,
     magics: RwLock<Option<HashMap<&'static str, Box<dyn Any>>>>,
     initializer: Option<for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>)>,
-    mapper: for<'a> fn(Args, &Self) -> MagicArgs
+    mapper: for<'a> fn(Args, &Self) -> MagicArgs,
+    dummy: Option<F>
 }
 
-impl<Args: Tuple, MagicArgs: Tuple, Output> PotatoFunc<Args, MagicArgs, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy> PotatoFunc<Args, MagicArgs, Output, F> {
     /// Safety:
     /// DO NOT USE MANUALLY! Only meant for macro use!
     pub const unsafe fn new(path: &'static str, initializer: for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>), mapper: for<'a> fn(Args, &Self) -> MagicArgs) -> Self {
@@ -27,7 +28,8 @@ impl<Args: Tuple, MagicArgs: Tuple, Output> PotatoFunc<Args, MagicArgs, Output> 
             func: RwLock::new(None),
             magics: RwLock::new(None),
             initializer: Some(initializer),
-            mapper
+            mapper,
+            dummy: None
         };
         potato
     }
@@ -45,13 +47,12 @@ impl<Args: Tuple, MagicArgs: Tuple, Output> PotatoFunc<Args, MagicArgs, Output> 
     }
 
     fn load_from_lib(&self, potato_lib: &Library) {
-        let fun: Symbol<fn()> = unsafe { potato_lib.get(self.path.as_ref()).expect("could not find potatoed function") };
-        let fun: Symbol<fn(Args) -> Output> = unsafe{ std::mem::transmute(fun) };
-        let boxed: Box<dyn Fn<(Args,), Output = Output>> = Box::new(*fun);
-        let boxed: Box<dyn Fn<Args, Output = Output>> = unsafe{ std::mem::transmute(boxed) };
+        let fun: Symbol<F> = unsafe { potato_lib.get(self.path.as_ref()).expect("could not find potatoed function") };
+        let boxed: Box<dyn Fn<MagicArgs, Output = Output>> = Box::new(*fun);
+        let boxed: Box<dyn Fn<MagicArgs, Output = Output>> = unsafe{ std::mem::transmute(boxed) };
 
         let mut func = self.func.write();
-        *func = Some(unsafe{ std::mem::transmute(boxed) });
+        *func = Some(boxed);
     }
     pub fn get<T: Clone + 'static>(&self, magic: &str) -> T {
         let reader = self.magics.read();
@@ -107,7 +108,7 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
 
     for potato_handle in inventory::iter::<PotatoHandle> {
         (potato_handle.loader)(potato_handle.potato, &potato_lib);
-        let potato = unsafe { &mut *(potato_handle.potato as *mut PotatoFunc<(), (), ()>) };
+        let potato = unsafe { &mut *(potato_handle.potato as *mut PotatoFunc<(), (), (), fn()>) };
         if let Some(initializer) = potato.initializer.take() {
             initializer(potato.magics.write())
         }
@@ -118,24 +119,25 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
     Ok(())
 }
 
-impl<Args: Tuple, MagicArgs: Tuple, Output> FnOnce<Args> for PotatoFunc<Args, MagicArgs, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy> FnOnce<Args> for PotatoFunc<Args, MagicArgs, Output, F> {
     type Output = Output;
     extern "rust-call" fn call_once(self, args: Args) -> Self::Output {
         self.func.read().as_ref().map(|f| f.call((self.mapper)(args, &self))).expect("function was not loaded")
     }
 }
 
-impl<Args: Tuple, MagicArgs: Tuple, Output> FnMut<Args> for PotatoFunc<Args, MagicArgs, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy> FnMut<Args> for PotatoFunc<Args, MagicArgs, Output, F> {
     extern "rust-call" fn call_mut(&mut self, args: Args) -> Self::Output {
         self.func.read().as_ref().map(|f| f.call((self.mapper)(args, self))).expect("function was not loaded")
     }
 }
 
-impl<Args: Tuple, MagicArgs: Tuple, Output> Fn<Args> for PotatoFunc<Args, MagicArgs, Output> {
+impl<Args: Tuple + Debug, MagicArgs: Tuple + Debug, Output, F: Fn<MagicArgs, Output = Output> + Copy> Fn<Args> for PotatoFunc<Args, MagicArgs, Output, F> {
     extern "rust-call" fn call(&self, args: Args) -> Self::Output {
-        self.func.read().as_ref().map(|f| f.call((self.mapper)(args, self))).expect("function was not loaded")
+        let margs = (self.mapper)(args, self);
+        self.func.read().as_ref().map(|f| f.call(margs)).expect("function was not loaded")
     }
 }
 
 
-unsafe impl <Args: Tuple, MagicArgs: Tuple, Output> Sync for PotatoFunc<Args, MagicArgs, Output> {}
+unsafe impl <Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy> Sync for PotatoFunc<Args, MagicArgs, Output, F> {}

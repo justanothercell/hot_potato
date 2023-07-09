@@ -115,7 +115,7 @@ fn apply_to_fn(attr: TokenStream, fun: Function) -> TokenStream {
         
         #(#attrs)*
         #[allow(non_upper_case_globals)]
-        #vis static #name: ::hot_potato::PotatoFunc<( #(#arg_tys,)*), ( #(#arg_tys,)* #(#magics_tys,)* ), #ret> = unsafe { ::hot_potato::PotatoFunc::new(
+        #vis static #name: ::hot_potato::PotatoFunc<( #(#arg_tys,)*), ( #(#arg_tys,)* #(#magics_tys,)* ), #ret, fn( #(#arg_tys,)* #(#magics_tys,)* ) -> #ret> = unsafe { ::hot_potato::PotatoFunc::new(
             concat!(module_path!(), "::", stringify!(#name), "__potato"),
             |mut writer| {
                 let mut map: ::std::collections::HashMap<&'static str, Box<dyn ::std::any::Any>> = ::std::collections::HashMap::new();
