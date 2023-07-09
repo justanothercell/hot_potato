@@ -16,7 +16,7 @@ pub struct PotatoFunc<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Ou
     magics: RwLock<Option<HashMap<&'static str, Box<dyn Any>>>>,
     initializer: Option<for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>)>,
     mapper: for<'a> fn(Args, &Self) -> MagicArgs,
-    dummy: Option<F>
+    _dummy: Option<F>
 }
 
 impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy> PotatoFunc<Args, MagicArgs, Output, F> {
@@ -29,7 +29,7 @@ impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + 
             magics: RwLock::new(None),
             initializer: Some(initializer),
             mapper,
-            dummy: None
+            _dummy: None
         };
         potato
     }
@@ -85,6 +85,13 @@ static mut LIBHOLDER: Option<Library> = None;
 
 #[must_use]
 pub fn build_and_reload_potatoes() -> Result<(), String> {
+    // aquire write locks so that no one tries to run a function while the lib is reloading
+    let mut locks = vec![];
+    for potato_handle in inventory::iter::<PotatoHandle> {
+        let potato = unsafe { &mut *(potato_handle.potato as *mut PotatoFunc<(), (), (), fn()>) };
+        locks.push((potato.magics.write(), potato_handle));
+    }
+
     // drop old lib
     unsafe { LIBHOLDER.take(); }
 
@@ -106,11 +113,11 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
 
     let potato_lib = unsafe { Library::new(format!("{base}/{lib}")).map_err(|e| e.to_string())? };
 
-    for potato_handle in inventory::iter::<PotatoHandle> {
+    for (magics, potato_handle) in locks {
         (potato_handle.loader)(potato_handle.potato, &potato_lib);
         let potato = unsafe { &mut *(potato_handle.potato as *mut PotatoFunc<(), (), (), fn()>) };
         if let Some(initializer) = potato.initializer.take() {
-            initializer(potato.magics.write())
+            initializer(magics)
         }
     }
 
