@@ -3,30 +3,38 @@
 #![feature(fn_traits)]
 #![feature(exit_status_error)]
 
-use std::{marker::Tuple, process::{Command, Stdio}};
+use std::{marker::Tuple, process::{Command, Stdio}, collections::HashMap, any::Any};
 use libloading::{Library, Symbol};
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 
 pub use hot_potato_proc_macro::potato;
 pub use inventory::submit;
 
-pub struct PotatoFunc<Args: Tuple, Output>  {
+pub struct PotatoFunc<Args: Tuple, MagicArgs: Tuple, Output>  {
     path: &'static str,
-    func: RwLock<Option<Box<dyn Fn<Args, Output = Output>>>>
+    func: RwLock<Option<Box<dyn Fn<MagicArgs, Output = Output>>>>,
+    magics: RwLock<Option<HashMap<&'static str, Box<dyn Any>>>>,
+    initializer: Option<for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>)>,
+    mapper: for<'a> fn(Args, &Self) -> MagicArgs
 }
 
-impl<Args: Tuple, Output> PotatoFunc<Args, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output> PotatoFunc<Args, MagicArgs, Output> {
     /// Safety:
-    /// DO NOT USE MANUALLY!
-    pub const unsafe fn new(path: &'static str) -> Self {
+    /// DO NOT USE MANUALLY! Only meant for macro use!
+    pub const unsafe fn new(path: &'static str, initializer: for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>), mapper: for<'a> fn(Args, &Self) -> MagicArgs) -> Self {
         let potato = Self { 
             path: path, 
-            func: RwLock::new(None)
+            func: RwLock::new(None),
+            magics: RwLock::new(None),
+            initializer: Some(initializer),
+            mapper
         };
         potato
     }
 
-    pub const fn handle(&self) -> PotatoHandle{
+    /// Safety:
+    /// DO NOT USE MANUALLY! Only meant for macro use!
+    pub const unsafe fn handle(&self) -> PotatoHandle{
         PotatoHandle { 
             potato: self as *const _ as *const u8,
             loader: |potato, potato_lib| {
@@ -44,6 +52,22 @@ impl<Args: Tuple, Output> PotatoFunc<Args, Output> {
 
         let mut func = self.func.write();
         *func = Some(unsafe{ std::mem::transmute(boxed) });
+    }
+    pub fn get<T: Clone + 'static>(&self, magic: &str) -> T {
+        let reader = self.magics.read();
+        let map = reader.as_ref().expect("function was not initalized");
+        let any = map.get(magic).expect(&format!("invalid magic `{}` does not exist!", magic));
+        let v: &T = any.downcast_ref().expect("type mismatch while getting magic!");
+        v.clone()
+    }
+
+    pub fn set<T: Clone + 'static>(&self, magic: &'static str, v: T){
+        // easiest way to get all the checks for free!
+        self.get::<T>(magic);
+
+        let mut writer = self.magics.write();
+        let map = writer.as_mut().expect("function was not initalized");
+        map.insert(magic, Box::new(v));
     }
 }
 
@@ -67,22 +91,25 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn().map_err(|e| e.to_string())?;
-    let status = compile.wait().expect("did nto complete successfully");
+    let status = compile.wait().expect("did not complete successfully");
     status.exit_ok().map_err(|e| e.to_string())?;
 
     let next = std::env::args().next().unwrap();
-    let (base, exe) = next.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
-    let name = exe.rsplit_once(".").unwrap_or((exe, "")).0;
+    let (base, _) = next.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
 
     #[cfg(windows)]
-    let lib = format!("{name}.dll");
+    let lib = format!("potato_dytarget.dll");
     #[cfg(not(windows))]
-    let lib = format!("lib{name}.so");
+    let lib = "libpotato_dytarget.so";
 
     let potato_lib = unsafe { Library::new(format!("{base}/{lib}")).map_err(|e| e.to_string())? };
 
     for potato_handle in inventory::iter::<PotatoHandle> {
-        (potato_handle.loader)(potato_handle.potato, &potato_lib)
+        (potato_handle.loader)(potato_handle.potato, &potato_lib);
+        let potato = unsafe { &mut *(potato_handle.potato as *mut PotatoFunc<(), (), ()>) };
+        if let Some(initializer) = potato.initializer.take() {
+            initializer(potato.magics.write())
+        }
     }
 
     unsafe { LIBHOLDER = Some(potato_lib); }
@@ -90,24 +117,24 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
     Ok(())
 }
 
-impl<Args: Tuple, Output> FnOnce<Args> for PotatoFunc<Args, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output> FnOnce<Args> for PotatoFunc<Args, MagicArgs, Output> {
     type Output = Output;
     extern "rust-call" fn call_once(self, args: Args) -> Self::Output {
-        self.func.read().as_ref().map(|f| f.call(args)).expect("function was not loaded")
+        self.func.read().as_ref().map(|f| f.call((self.mapper)(args, &self))).expect("function was not loaded")
     }
 }
 
-impl<Args: Tuple, Output> FnMut<Args> for PotatoFunc<Args, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output> FnMut<Args> for PotatoFunc<Args, MagicArgs, Output> {
     extern "rust-call" fn call_mut(&mut self, args: Args) -> Self::Output {
-        self.func.read().as_ref().map(|f| f.call(args)).expect("function was not loaded")
+        self.func.read().as_ref().map(|f| f.call((self.mapper)(args, self))).expect("function was not loaded")
     }
 }
 
-impl<Args: Tuple, Output> Fn<Args> for PotatoFunc<Args, Output> {
+impl<Args: Tuple, MagicArgs: Tuple, Output> Fn<Args> for PotatoFunc<Args, MagicArgs, Output> {
     extern "rust-call" fn call(&self, args: Args) -> Self::Output {
-        self.func.read().as_ref().map(|f| f.call(args)).expect("function was not loaded")
+        self.func.read().as_ref().map(|f| f.call((self.mapper)(args, self))).expect("function was not loaded")
     }
 }
 
 
-unsafe impl <Args: Tuple, Output> Sync for PotatoFunc<Args, Output> {}
+unsafe impl <Args: Tuple, MagicArgs: Tuple, Output> Sync for PotatoFunc<Args, MagicArgs, Output> {}

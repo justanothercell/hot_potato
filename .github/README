@@ -1,0 +1,5 @@
+# hot_potato: Hot reloading your rust code
+
+This crate 
+
+Check out the [test_project](../test_project/src/main.rs), simply run it using `cargo run`
