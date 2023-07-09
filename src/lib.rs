@@ -5,7 +5,7 @@
 
 use std::{marker::Tuple, process::{Command, Stdio}};
 use libloading::{Library, Symbol};
-use parking_lot::{RwLock, RwLockWriteGuard};
+use parking_lot::RwLock;
 
 pub use hot_potato_proc_macro::potato;
 pub use inventory::submit;
@@ -32,16 +32,8 @@ impl<Args: Tuple, Output> PotatoFunc<Args, Output> {
             loader: |potato, potato_lib| {
                 let potato = unsafe { &mut *(potato as *mut Self) };
                 potato.load_from_lib(potato_lib)
-            },
-            locker: |potato| {
-                let potato = unsafe { &mut *(potato as *mut Self) };
-                unsafe { std::mem::transmute(potato.func.write()) }
-            },
+            }
         }
-    }
-
-    fn write_lock(&self) {
-
     }
 
     fn load_from_lib(&self, potato_lib: &Library) {
@@ -57,8 +49,7 @@ impl<Args: Tuple, Output> PotatoFunc<Args, Output> {
 
 pub struct PotatoHandle {
     potato: *const u8,
-    loader: fn(*const u8, &Library),
-    locker: fn(*const u8) -> RwLockWriteGuard<'static, PotatoFunc<(), ()>>
+    loader: fn(*const u8, &Library)
 }
 
 unsafe impl Sync for PotatoHandle {}
@@ -69,12 +60,6 @@ static mut LIBHOLDER: Option<Library> = None;
 
 #[must_use]
 pub fn build_and_reload_potatoes() -> Result<(), String> {
-    // aquire write lock to stop calls to dropped lib funcs
-    let mut write_locks = vec![];
-    for potato in inventory::iter::<PotatoHandle> {
-        write_locks.push(unsafe { &mut *(potato as *mut PotatoFunc<(), ()>) })
-    }
-    
     // drop old lib
     unsafe { LIBHOLDER.take(); }
 
@@ -101,9 +86,6 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
     }
 
     unsafe { LIBHOLDER = Some(potato_lib); }
-
-    // allow read access again so that other threads can call potatoes
-    drop(write_locks);
 
     Ok(())
 }
