@@ -1,4 +1,3 @@
-use std::io::{stdout, stdin, Write};
 
 use hot_potato::{potato, build_and_reload_potatoes};
 
@@ -18,9 +17,7 @@ fn main() {
         println!("{c}");
         magicfun.set("c", c + 1);
 
-        let mut s = String::new();
-        print!("Press enter to hot-reload magicfun");
-        let _ = stdout().flush();
-        stdin().read_line(&mut s).unwrap();
+        println!("Press enter to hot-reload magicfun");
+        std::io::stdin().read_line(&mut String::new()).unwrap();
     }
 }
