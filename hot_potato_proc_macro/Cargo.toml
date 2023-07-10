@@ -2,6 +2,10 @@
 name = "hot_potato_proc_macro"
 version = "0.1.0"
 edition = "2021"
+repository = "https://github.com/DragonFighter603/hot_potato"
+authors = ["DragonFighter603"]
+description = "helper crate for hot_potato"
+license-file = "../LICENSE"
 
 [lib]
 proc-macro = true

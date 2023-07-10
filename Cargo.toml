@@ -2,6 +2,13 @@
 name = "hot_potato"
 version = "0.1.0"
 edition = "2021"
+authors = ["DragonFighter603"]
+repository = "https://github.com/DragonFighter603/hot_potato"
+description = "hot reloading library for development"
+license-file = "LICENSE"
+keywords = ["hot-reloading", "magic-values", "dylib", "cdylib"]
+categories = ["development-tools", "game-development"]
+readme = ".github/README.md"
 
 [dependencies]
 hot_potato_proc_macro = { version="0.1.0", path="./hot_potato_proc_macro" }

@@ -142,4 +142,4 @@ fn on_click_open(ui: &mut UIContext) {
 - hot reload trait methods or generics
 - make you a sandwich
 
-Warning: Function signature changes and similar wild stuff will result in undefined behavior, msot likely a `STATUS_ACCESS_VIOLATION` or similar crash.
+Warning: Function signature changes and similar wild stuff will result in undefined behavior, most likely a `STATUS_ACCESS_VIOLATION` or similar crash.
