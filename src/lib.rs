@@ -10,31 +10,33 @@ use parking_lot::{RwLock, RwLockWriteGuard};
 pub use hot_potato_proc_macro::potato;
 pub use inventory::submit;
 
+type InitFn = for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>);
+
 pub struct PotatoFunc<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy>  {
     path: &'static str,
     func: RwLock<Option<Box<dyn Fn<MagicArgs, Output = Output>>>>,
     magics: RwLock<Option<HashMap<&'static str, Box<dyn Any>>>>,
-    initializer: Option<for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>)>,
+    initializer: Option<InitFn>,
     mapper: for<'a> fn(Args, &Self) -> MagicArgs,
     _dummy: Option<F>
 }
 
 impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + Copy> PotatoFunc<Args, MagicArgs, Output, F> {
-    /// Safety:
+    /// # Safety
     /// DO NOT USE MANUALLY! Only meant for macro use!
-    pub const unsafe fn new(path: &'static str, initializer: for<'a> fn(RwLockWriteGuard<'a, Option<HashMap<&'static str, Box<dyn Any>>>>), mapper: for<'a> fn(Args, &Self) -> MagicArgs) -> Self {
-        let potato = Self { 
-            path: path, 
+    pub const unsafe fn new(path: &'static str, initializer: InitFn, mapper: for<'a> fn(Args, &Self) -> MagicArgs) -> Self {
+        
+        Self { 
+            path, 
             func: RwLock::new(None),
             magics: RwLock::new(None),
             initializer: Some(initializer),
             mapper,
             _dummy: None
-        };
-        potato
+        }
     }
 
-    /// Safety:
+    /// # Safety
     /// DO NOT USE MANUALLY! Only meant for macro use!
     pub const unsafe fn handle(&self) -> PotatoHandle{
         PotatoHandle { 
@@ -57,7 +59,7 @@ impl<Args: Tuple, MagicArgs: Tuple, Output, F: Fn<MagicArgs, Output = Output> + 
     pub fn get<T: Clone + 'static>(&self, magic: &str) -> T {
         let reader = self.magics.read();
         let map = reader.as_ref().expect("function was not initalized");
-        let any = map.get(magic).expect(&format!("invalid magic `{}` does not exist!", magic));
+        let any = map.get(magic).unwrap_or_else(|| panic!("invalid magic `{}` does not exist!", magic));
         let v: &T = any.downcast_ref().expect("type mismatch while getting magic!");
         v.clone()
     }
@@ -83,7 +85,6 @@ inventory::collect!(PotatoHandle);
 
 static mut LIBHOLDER: Option<Library> = None;
 
-#[must_use]
 pub fn build_and_reload_potatoes() -> Result<(), String> {
     // aquire write locks so that no one tries to run a function while the lib is reloading
     let mut locks = vec![];
@@ -104,7 +105,7 @@ pub fn build_and_reload_potatoes() -> Result<(), String> {
 
     let next = std::env::args().next().unwrap();
     let (base, exe) = next.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
-    let name = exe.rsplit_once(".").unwrap_or((exe, "")).0;
+    let name = exe.rsplit_once('.').unwrap_or((exe, "")).0;
 
     #[cfg(windows)]
     let lib = format!("{name}.dll");

@@ -1,9 +1,9 @@
 #![feature(proc_macro_diagnostic)]
 
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span, Punct};
+use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use syn::{parse, punctuated::Punctuated, parse::{Parse, ParseStream, ParseBuffer}, token::{Eq, Comma}, Expr, Token, parse_macro_input, Type};
+use syn::{punctuated::Punctuated, parse::{Parse, ParseStream}, token::{Comma}, Expr, Token, parse_macro_input, Type};
 use venial::{Function, TyExpr};
 
 
