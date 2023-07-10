@@ -25,11 +25,11 @@ serve soundly in a deployed build.
 (see [test_project](../test_project/src/main.rs) for a rudimentary implementation)
 
 0. Add `hot_potato` to your project<br>
-```sh
+```shell
 cargo add hot_potato
 ```
 1. Create the function you want to hot reload and annotate with with `potato`
-```rs
+```rust
 use hot_potato::potato;
 
 /// t: time [0.0;1.0]
@@ -40,7 +40,7 @@ fn interpolate(t: f32) -> f32 {
 }
 ```
 2. Load the functions on startup
-```rs
+```rust
 use hot_potato::build_and_reload_potatoes;
 
 fn main() {
@@ -49,7 +49,7 @@ fn main() {
 }
 ```
 3. Create a reload trigger (hotkey, ui widget, or an input like here)
-```rs
+```rust
 fn main() {
     // some quick and dirty loop
     loop {
@@ -82,7 +82,7 @@ the lib target is for the hot reloading and the bin target is your default run c
 5. Run using `cargo run`
 
 Try editing the interpolation function and triggering the reload:
-```rs
+```rust
 /// t: time [0.0;1.0]
 #[potato]
 fn interpolate(t: f32) -> f32 {
@@ -90,7 +90,7 @@ fn interpolate(t: f32) -> f32 {
     t * t
 }
 ```
-```rs
+```rust
 /// t: time [0.0;1.0]
 #[potato]
 fn interpolate(t: f32) -> f32 {
@@ -105,7 +105,7 @@ In this scenario we want to show a widget with a certain color but we are not qu
 Note that you still need an initial `build_and_reload_potatoes`, but no such reload is needed after value adjustment.
 
 Pseudo code, look at [test_project](../test_project/src/main.rs) for some real code
-```rs
+```rust
 // We are not quite happy with our color... 
 // Instead of starting the whole app anew every time we change it slightly,
 // or having to change our code in a way that we pass around those values
