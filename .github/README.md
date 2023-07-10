@@ -1,5 +1,12 @@
 # hot_potato: Hot reloading your rust code
-
+[![Github](https://img.shields.io/badge/github-DragonFighter603/hot_potato?style=flat-square&labelColor=555555&logo=github)](https://github.com/DragonFighter603/hot_potato)
+[![crates.io](https://img.shields.io/crates/v/hot_potato?style=flat-square&color=fc8d62&logo=rust)](https://crates.io/crates/hot_potato)
+[![License](https://img.shields.io/github/license/DragonFighter603/hot_potato?style=flat-square)](https://github.com/DragonFighter603/hot_potato/blob/main/LICENSE)
+[![Stars](https://img.shields.io/github/stars/DragonFighter603/hot_potato?style=flat-square)](https://github.com/DragonFighter603/hot_potato/stargazers)
+![Lines of code](https://raster.shields.io/tokei/lines/github/DragonFighter603/hot_potato?style=flat-square)
+<!-- 
+[![docs.rs](https://img.shields.io/badge/docs.rs-struct_scalpel-66c2a5?style=flat-square&labelColor=555555&logo=docs.rs)](https://docs.rs/struct_scalpel)
+-->
 This crate lets you hot reload function bodies and change magic values on the fly,
 enabling quick changes without an entire restart and navigation to the current interactible.
 
