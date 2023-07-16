@@ -100,7 +100,7 @@ fn apply_to_fn(attr: TokenStream, fun: Function) -> TokenStream {
         venial::FnParam::Receiver(_) => unreachable!(),
         venial::FnParam::Typed(t) => &t.ty,
     }).collect::<Vec<&TyExpr>>();
-    let ret = fun.return_ty;
+    let ret = fun.return_ty.map(|t| quote!{ t }).unwrap_or(quote!{ () });
     let where_clause = fun.where_clause;
     let body = fun.body;
     if body.is_none() { panic!("potato only applicable to functions with a body") }

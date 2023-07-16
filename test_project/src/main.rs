@@ -6,6 +6,11 @@ fn magicfun(a: u32, b: u32) -> u32 {
     a * b + c
 }
 
+#[potato]
+fn foo() {
+    
+}
+
 #[allow(unused)]
 fn main() {
     loop {
