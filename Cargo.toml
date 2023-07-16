@@ -1,6 +1,6 @@
 [package]
 name = "hot_potato"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["DragonFighter603"]
 repository = "https://github.com/DragonFighter603/hot_potato"
