@@ -91,12 +91,12 @@ fn apply_to_fn(attr: TokenStream, fun: Function) -> TokenStream {
     let internal_name = Ident::new(&format!("{}__potato_internal", name.to_string()), Span::call_site());
     let generics = fun.generic_params;
     if generics.is_some() { panic!("potato may only be applied to functions without generics") }
-    let args = fun.params;
-    let arg_names = args.iter().map(|(param, _)| match param {
+    let args = fun.params.iter().map(|(param, _)| param).collect::<Vec<_>>();
+    let arg_names = args.iter().map(|param| match param {
         venial::FnParam::Receiver(r) => panic!("potato may not be applied to self-methods"),
         venial::FnParam::Typed(t) => &t.name,
     }).collect::<Vec<&Ident>>();
-    let arg_tys = args.iter().map(|(param, _)| match param {
+    let arg_tys = args.iter().map(|param| match param {
         venial::FnParam::Receiver(_) => unreachable!(),
         venial::FnParam::Typed(t) => &t.ty,
     }).collect::<Vec<&TyExpr>>();
@@ -110,7 +110,7 @@ fn apply_to_fn(attr: TokenStream, fun: Function) -> TokenStream {
         #[no_mangle]
         #[export_name=concat!(module_path!(), "::", stringify!(#name), "__potato")]
         #[allow(non_snake_case)]
-        pub fn #internal_name #generics ( #args, #(#magics_args,)* ) -> #ret #where_clause 
+        pub fn #internal_name #generics ( #(#args,)* #(#magics_args,)* ) -> #ret #where_clause 
             #body
         
         #(#attrs)*
